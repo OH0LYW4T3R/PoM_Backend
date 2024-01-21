@@ -16,7 +16,9 @@ Including another URLconf
 """
 from django.contrib import admin
 from django.urls import path
+from portfolio.views import summary_view
 
 urlpatterns = [
     path('admin/', admin.site.urls),
+    path('summary/', summary_view, name="summary_end_point")
 ]
