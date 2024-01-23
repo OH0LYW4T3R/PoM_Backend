@@ -8,5 +8,13 @@ TAG_DICT = {
     },
     "tistory" : {
 
+    },
+    "naver" : {
+
+    },
+    "notion" : {
+        "title" : "header",
+        "title_tag" : "h1",
+        "main_text": ".page-body"
     }
 }
