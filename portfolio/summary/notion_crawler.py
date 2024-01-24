@@ -4,11 +4,11 @@ from .infoList import TAG_DICT
 
 CHUNK_SIZE = 40000
 
-def notion_summary(file):
+def notion_crawler(file, blog):
     try:
-        blog = "notion"
         soup = ""
         main_text = ""
+        title = None
 
         while True:
             chunk = file.read(CHUNK_SIZE)
@@ -22,7 +22,6 @@ def notion_summary(file):
                     
                     if title_tag:
                         title = title_tag.find(TAG_DICT[blog]["title_tag"]).text
-                        print(title)
                     else:
                         pass
 
@@ -30,7 +29,9 @@ def notion_summary(file):
 
                     if main_text_tag:
                         main_text = main_text.join([tag.text.strip() for tag in main_text_tag.find_all(True)])
-                        print(main_text)
+        print(title)
+        print(main_text)
+        return [title, main_text, None]
 
     except:
         raise AttributeError
