@@ -6,6 +6,7 @@ def velog_crawler(url, blog):
     try:
         res = requests.get(url)
         soup = BeautifulSoup(res.content, "html.parser")
+        title = ""
 
         if soup :
             if TAG_DICT[blog]["title"] != None:

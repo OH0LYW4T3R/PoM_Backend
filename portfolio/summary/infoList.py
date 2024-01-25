@@ -20,7 +20,6 @@ TAG_DICT = {
         "title" : None,
         "title_tag" : None,
         "main_text" : "article"
-        #".Box-sc-g0xbh4-0 bJMeLZ js-snippet-clipboard-copy-unpositioned"
     },
     "notion" : {
         "title" : "header",
@@ -28,6 +27,3 @@ TAG_DICT = {
         "main_text": ".page-body"
     }
 }
-
-# Box-sc-g0xbh4-0 bJMeLZ js-snippet-clipboard-copy-unpositioned
-# Box-sc-g0xbh4-0 bJMeLZ js-snippet-clipboard-copy-unpositioned

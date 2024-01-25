@@ -1,6 +1,11 @@
 from .models import User, EnterpriseUser, Enterprise, Category, Portfolio
 from rest_framework import serializers
 
+class SummarySerializer(serializers.Serializer):
+    topic = serializers.CharField()
+    summary = serializers.CharField()
+    thumb_nail_url = serializers.CharField()
+
 class PortfolioSerializer(serializers.ModelSerializer):
     class Meta:
         model = Portfolio

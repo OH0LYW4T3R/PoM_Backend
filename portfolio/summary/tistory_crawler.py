@@ -15,6 +15,8 @@ def tistory_crawler(url, blog):
                 or soup.select_one(TAG_DICT[blog]["main_text"][3])
             )
 
+            print(main_text_tag)
+
             thumb_nail_url = None
             try:
                 thumb_nail_url = main_text_tag.find('img').get("src")
@@ -22,10 +24,12 @@ def tistory_crawler(url, blog):
             except:
                 pass
 
-            main_text = ' '.join([tag.text.strip() for tag in main_text_tag.find_all(True)])
+            main_text = ' '.join([tag.get_text(strip=True) for tag in main_text_tag.find_all('p')])
+
+            print(len(main_text))
             
             print(main_text, thumb_nail_url)
-            return [None, main_text, thumb_nail_url]
+            return ["", main_text, thumb_nail_url]
         else:
             raise AttributeError
     except:

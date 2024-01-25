@@ -14,7 +14,7 @@ def github_crawler(file):
 
         print(main_text)
         print(thumb_nail_url)
-        return [None, main_text, thumb_nail_url]
+        return ["", main_text, thumb_nail_url[0]]
 
     except:
         raise AttributeError

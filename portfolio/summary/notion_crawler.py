@@ -8,7 +8,7 @@ def notion_crawler(file, blog):
     try:
         soup = ""
         main_text = ""
-        title = None
+        title = ""
 
         while True:
             chunk = file.read(CHUNK_SIZE)
