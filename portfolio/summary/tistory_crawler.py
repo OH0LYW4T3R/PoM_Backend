@@ -24,9 +24,8 @@ def tistory_crawler(url, blog):
             except:
                 pass
 
-            main_text = ' '.join([tag.get_text(strip=True) for tag in main_text_tag.find_all('p')])
-
-            print(len(main_text))
+            main_text = ' '.join([tag for tag in main_text_tag.find_all(text=True)])
+            main_text = main_text.replace("\n", "")
             
             print(main_text, thumb_nail_url)
             return ["", main_text, thumb_nail_url]

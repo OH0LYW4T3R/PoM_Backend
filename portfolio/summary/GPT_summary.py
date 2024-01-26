@@ -16,16 +16,18 @@ def add_question(extract_content):
     request = "앞서 주어진 내용에 대해서 다음과 같은 형식으로 응답해줘"
 
     total_question = question + request + shape
+    word = total_question.split()
+    select_word = word[-2750:]
 
-    print(total_question)
+    total_question = ' '.join(select_word)
 
     return total_question
 
 
-def gpt_summary(string, thumb_nail_url):
+def gpt_summary(string, title, thumb_nail_url):
     try: 
         dict_data = {}
-
+        
         client = OpenAI(
             api_key = get_env_variable('API_KEY'),
         )
@@ -39,14 +41,20 @@ def gpt_summary(string, thumb_nail_url):
             ],
             model="gpt-4",
         )
-
+        print(chat_completion.choices[0].message.content)
         if chat_completion.choices[0].message.content[0] == "{" and chat_completion.choices[0].message.content[-1] == "}":
             dict_data = json.loads(chat_completion.choices[0].message.content)
+
+            print(dict_data)
 
             if thumb_nail_url:
                 dict_data['thumb_nail_url'] = thumb_nail_url    
             else:
-                dict_data['thumb_nail_url'] = "None"    
+                dict_data['thumb_nail_url'] = "None" 
+
+            if title:
+                dict_data['topic'] = title
+
             return dict_data
         else:
             return dict_data

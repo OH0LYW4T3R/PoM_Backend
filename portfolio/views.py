@@ -56,7 +56,7 @@ def summary_view(request):
                     extract_content = tistory_crawler(url, blog)
 
             total_question = add_question(extract_content)
-            gpt_response = gpt_summary(total_question, extract_content[2])
+            gpt_response = gpt_summary(total_question, extract_content[0], extract_content[2])
 
             serializer = SummarySerializer(data=gpt_response)
 
