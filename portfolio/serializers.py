@@ -2,9 +2,9 @@ from .models import User, EnterpriseUser, Enterprise, Category, Portfolio
 from rest_framework import serializers
 
 class SummarySerializer(serializers.Serializer):
-    topic = serializers.CharField()
-    summary = serializers.CharField()
-    thumb_nail_url = serializers.CharField()
+    title = serializers.CharField()
+    content = serializers.CharField()
+    thumbnail = serializers.CharField()
 
 class PortfolioSerializer(serializers.ModelSerializer):
     class Meta:
@@ -12,7 +12,7 @@ class PortfolioSerializer(serializers.ModelSerializer):
         fields = "__all__"
 
 class CategorySerializer(serializers.ModelSerializer):
-    portfolio = PortfolioSerializer(many=True, read_only=True, source="portfolio")
+    portfolio = PortfolioSerializer(many=True, read_only=True)
 
     class Meta:
         model = Category
@@ -20,17 +20,17 @@ class CategorySerializer(serializers.ModelSerializer):
 
 class EnterpriseSerializer(serializers.ModelSerializer):
     class Meta:
-        model = User
+        model = Enterprise
         fields = "__all__"
 
 class EnterpriseUserSerializer(serializers.ModelSerializer):
     class Meta:
-        model = User
+        model = EnterpriseUser
         fields = "__all__"
 
 class UserSerializer(serializers.ModelSerializer):
-    enterprise_visible = EnterpriseSerializer(many=True, read_only=True, source="enterprise_visible")
-    category = CategorySerializer(many=True, read_only=True, source="category")
+    enterprise_visible = EnterpriseSerializer(many=True, read_only=True)
+    category = CategorySerializer(many=True, read_only=True)
 
     class Meta:
         model = User

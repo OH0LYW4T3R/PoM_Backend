@@ -1,7 +1,7 @@
 from django.shortcuts import render
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
-from rest_framework import status
+from rest_framework import status, viewsets
 from .summary.velog_crawler import velog_crawler
 from .summary.infoList import VERIFIED_BLOG_LIST
 from .summary.notion_crawler import notion_crawler
@@ -9,6 +9,9 @@ from .summary.tistory_crawler import tistory_crawler
 from .summary.github_crawler import github_crawler 
 from .summary.GPT_summary import add_question, gpt_summary
 from .serializers import SummarySerializer
+
+from .serializers import UserSerializer, EnterpriseUserSerializer, EnterpriseSerializer, CategorySerializer, PortfolioSerializer, SummarySerializer
+from .models import User, EnterpriseUser, Enterprise, Category, Portfolio
 """
 Comment
 
@@ -46,7 +49,7 @@ def summary_view(request):
                     raise Exception
                 
             # url 영역
-            else:
+            elif blog == "velog" or blog == "tistory":
                 url = request.data.get('url')
                 
                 # url, blog
@@ -54,6 +57,8 @@ def summary_view(request):
                     extract_content = velog_crawler(url, blog)
                 elif blog == "tistory":
                     extract_content = tistory_crawler(url, blog)
+            else:
+                return Response({"Error : Blog Select Error"}, status=status.HTTP_400_BAD_REQUEST)
 
             total_question = add_question(extract_content)
             gpt_response = gpt_summary(total_question, extract_content[0], extract_content[2])
@@ -71,4 +76,23 @@ def summary_view(request):
             return Response({"Error : Bad Request"}, status=status.HTTP_400_BAD_REQUEST)
     else:
         return Response({"Error" : 'Only Post requests are allowed'}, status=status.HTTP_400_BAD_REQUEST)
+    
+class UserViewSet(viewsets.ModelViewSet):
+    queryset = User.objects.all()
+    serializer_class = UserSerializer
 
+class EnterpriseUserViewSet(viewsets.ModelViewSet):
+    queryset = EnterpriseUser.objects.all()
+    serializer_class = EnterpriseUserSerializer
+
+class EnterpriseViewSet(viewsets.ModelViewSet):
+    queryset = Enterprise.objects.all()
+    serializer_class = EnterpriseSerializer
+
+class CategoryViewSet(viewsets.ModelViewSet):
+    queryset = Category.objects.all()
+    serializer_class = CategorySerializer
+
+class PortfolioViewSet(viewsets.ModelViewSet):
+    queryset = Portfolio.objects.all()
+    serializer_class = PortfolioSerializer

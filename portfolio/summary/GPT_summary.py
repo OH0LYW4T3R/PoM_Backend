@@ -9,17 +9,21 @@ def add_question(extract_content):
     question = extract_content[0] + "\n" + extract_content[1] + "\n\n"
     shape =  """
         {
-            topic : 다음 내용의 주제,
-            summary : 다음 내용의 3줄 요약
+            title : 다음 내용의 주제,
+            content : 다음 내용의 3줄 요약
         }
     """
     request = "앞서 주어진 내용에 대해서 다음과 같은 형식으로 응답해줘"
 
-    total_question = question + request + shape
+    total_question = question
     word = total_question.split()
     select_word = word[-2750:]
 
     total_question = ' '.join(select_word)
+
+    total_question += (request + shape)
+
+    print(total_question)
 
     return total_question
 
@@ -48,12 +52,12 @@ def gpt_summary(string, title, thumb_nail_url):
             print(dict_data)
 
             if thumb_nail_url:
-                dict_data['thumb_nail_url'] = thumb_nail_url    
+                dict_data['thumbnail'] = thumb_nail_url    
             else:
-                dict_data['thumb_nail_url'] = "None" 
+                dict_data['thumbnail'] = "None" 
 
             if title:
-                dict_data['topic'] = title
+                dict_data['title'] = title
 
             return dict_data
         else:
