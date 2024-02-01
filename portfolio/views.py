@@ -23,6 +23,15 @@ github : Readme.md 파일을 받아서 올려줘야함
 naver : 크롤링 막음.
 """
 
+def copy_request_data(data):
+    req_data = {}
+
+    print(data)
+    for key, value in data.items():
+        req_data[key] = value
+
+    return req_data
+
 @api_view(['POST'])
 # Portfolio Summary View
 def summary_view(request):
@@ -96,3 +105,36 @@ class CategoryViewSet(viewsets.ModelViewSet):
 class PortfolioViewSet(viewsets.ModelViewSet):
     queryset = Portfolio.objects.all()
     serializer_class = PortfolioSerializer
+
+    """
+    jwt를 전달받고, 해당 jwt를 민재 로그인서버에 주고 유저 아이디를 받아온다.
+    """
+    def create(self, request, *args, **kwargs):
+        """
+        jwt_token = request.data.get('token')
+        해당 토큰을 로그인 서버에 보내서 user_id 획득
+        """
+        user_id = request.data.get('user_id')
+        category = request.data.get('category')
+        category_obj = Category.objects.filter(user_id=user_id, category=category)
+        
+        if category_obj.exists():
+            req_data = copy_request_data(request.data)
+            req_data["category_id"] = category_obj[0].id 
+
+            thumbnail = request.data.get("thumbnail")
+            if thumbnail == "None":
+                pass
+            else:
+                req_data["thumbnail"] = thumbnail
+
+            serializer = self.get_serializer(data=req_data)
+            serializer.is_valid(raise_exception=True)
+            self.perform_create(serializer)
+            headers = self.get_success_headers(serializer.data)
+            return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)    
+        else:
+            return Response({"Error : Not exist Category"}, status=status.HTTP_400_BAD_REQUEST)
+        
+
+    

@@ -28,7 +28,7 @@ def upload_to_portfolio_thumbnail(instance, filename):
 class Portfolio(models.Model):
     id = models.BigAutoField(primary_key=True)
     category_id = models.ForeignKey(Category, related_name="portfolio", on_delete=models.CASCADE)
-    thumbnail = models.ImageField(upload_to=upload_to_portfolio_thumbnail)
+    thumbnail = models.CharField(max_length=10000)
     title = models.CharField(max_length=100)
     content = models.TextField()
     personal_visible = models.CharField(max_length=10, choices=[('private', "blind"), ('friend', 'friend'), ('public', "open")])
