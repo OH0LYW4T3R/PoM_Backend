@@ -23,12 +23,13 @@ class Category(models.Model):
     category = models.CharField(unique=True, help_text="category", max_length=100) # 얘를 포인트로 탐색
 
 def upload_to_portfolio_thumbnail(instance, filename):
-    return f'portfolio/{instance.category_id.user_id.name}/{instance.category_id.category}/{filename}'
+    return f'portfolio_thumbnail/{instance.category_id.user_id.name}/{instance.category_id.category}/{filename}'
 
 class Portfolio(models.Model):
     id = models.BigAutoField(primary_key=True)
     category_id = models.ForeignKey(Category, related_name="portfolio", on_delete=models.CASCADE)
-    thumbnail = models.CharField(max_length=10000)
+    thumbnail_url = models.CharField(max_length=10000, blank=True) # default = ''
+    thumbnail_file = models.ImageField(upload_to=upload_to_portfolio_thumbnail, null=True, blank=True) # default null
     title = models.CharField(max_length=100)
     content = models.TextField()
     personal_visible = models.CharField(max_length=10, choices=[('private', "blind"), ('friend', 'friend'), ('public', "open")])

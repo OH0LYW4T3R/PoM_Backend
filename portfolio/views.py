@@ -1,16 +1,23 @@
+from config.settings import BASE_DIR
+import os
+
 from django.shortcuts import render
+from django.core.files import File
+
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
 from rest_framework import status, viewsets
+
 from .summary.velog_crawler import velog_crawler
 from .summary.infoList import VERIFIED_BLOG_LIST
 from .summary.notion_crawler import notion_crawler
 from .summary.tistory_crawler import tistory_crawler  
 from .summary.github_crawler import github_crawler 
 from .summary.GPT_summary import add_question, gpt_summary
-from .serializers import SummarySerializer
 
+from .serializers import SummarySerializer
 from .serializers import UserSerializer, EnterpriseUserSerializer, EnterpriseSerializer, CategorySerializer, PortfolioSerializer, SummarySerializer
+
 from .models import User, EnterpriseUser, Enterprise, Category, Portfolio
 """
 Comment
@@ -22,6 +29,7 @@ github : Readme.md 파일을 받아서 올려줘야함
 
 naver : 크롤링 막음.
 """
+ADDRESS = "http://127.0.0.1:8000/"
 
 def copy_request_data(data):
     req_data = {}
@@ -114,6 +122,7 @@ class PortfolioViewSet(viewsets.ModelViewSet):
         jwt_token = request.data.get('token')
         해당 토큰을 로그인 서버에 보내서 user_id 획득
         """
+        default_img = 'image/default.png'
         user_id = request.data.get('user_id')
         category = request.data.get('category')
         category_obj = Category.objects.filter(user_id=user_id, category=category)
@@ -122,11 +131,14 @@ class PortfolioViewSet(viewsets.ModelViewSet):
             req_data = copy_request_data(request.data)
             req_data["category_id"] = category_obj[0].id 
 
-            thumbnail = request.data.get("thumbnail")
-            if thumbnail == "None":
-                pass
-            else:
-                req_data["thumbnail"] = thumbnail
+            thumbnail_url = request.data.get("thumbnail_url")
+            thumbnail_file = request.data.get("thumbnail_file")
+
+            if thumbnail_file:
+                req_data["thumbnail_file"] = thumbnail_file
+            elif thumbnail_url:
+                req_data["thumbnail_url"] = thumbnail_url
+            # 프론트에서 thumbnail_url = '' && thumbnail_file = null 이면 그냥 기본이미지 보여주게 셋팅
 
             serializer = self.get_serializer(data=req_data)
             serializer.is_valid(raise_exception=True)
