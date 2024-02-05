@@ -1,8 +1,11 @@
 from config.settings import BASE_DIR
+
 import os
+import requests
 
 from django.shortcuts import render
 from django.core.files import File
+from django.utils import timezone
 
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
@@ -30,6 +33,8 @@ github : Readme.md 파일을 받아서 올려줘야함
 naver : 크롤링 막음.
 """
 ADDRESS = "http://127.0.0.1:8000/"
+# 추후 로그인 서버 주소 삽입
+LOGIN_URL = "http://127.0.0.1:8000/p/"
 
 def copy_request_data(data):
     req_data = {}
@@ -39,6 +44,27 @@ def copy_request_data(data):
         req_data[key] = value
 
     return req_data
+
+def get_user_id(request):
+    authorization_header = request.headers.get('Authorization', '')
+
+    if authorization_header.startswith('Bearer '):
+        jwt_token = authorization_header[len('Bearer '):]
+
+        headers = {'Authorization': f'Bearer {jwt_token}'}
+        response = requests.get(LOGIN_URL, headers=headers)
+
+        if response.status_code == 200:
+            # 추후 응답에 따른 로직 변경
+            user_id = response.json()
+            return user_id
+        else:
+            # Server Error
+            return -2
+    else:
+        # -1 : Not Found (JWT)
+        return -1
+
 
 @api_view(['POST'])
 # Portfolio Summary View
@@ -121,8 +147,8 @@ class PortfolioViewSet(viewsets.ModelViewSet):
         """
         jwt_token = request.data.get('token')
         해당 토큰을 로그인 서버에 보내서 user_id 획득
+        user_id = get_user_id(request)
         """
-        default_img = 'image/default.png'
         user_id = request.data.get('user_id')
         category = request.data.get('category')
         category_obj = Category.objects.filter(user_id=user_id, category=category)
@@ -148,5 +174,119 @@ class PortfolioViewSet(viewsets.ModelViewSet):
         else:
             return Response({"Error : Not exist Category"}, status=status.HTTP_400_BAD_REQUEST)
         
+    def list(self, request, *args, **kwargs):
+        """
+        jwt_token = request.data.get('token')
+        해당 토큰을 로그인 서버에 보내서 user_id 획득
+        user_id = get_user_id(request)
+        """
+        user_id = request.data.get("user_id")
 
+        if user_id == -1:
+            return Response({"Error : JWT Not Found"}, status=status.HTTP_400_BAD_REQUEST)
+        elif user_id == -2:
+            return Response({"Error : Login Server Error"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        else:
+            category_obj = Category.objects.filter(user_id=user_id)
+
+            if category_obj.exists():
+                portfolio_queryset = Portfolio.objects.filter(category_id=category_obj[0].id)
+
+                for i in range(1, len(category_obj)):
+                    queryset = Portfolio.objects.filter(category_id=category_obj[i].id)
+                    portfolio_queryset = portfolio_queryset.union(queryset)
+
+                serializer = self.get_serializer(portfolio_queryset, many=True)
+                return Response(serializer.data)
+            else:
+                return Response({"Error : Not Exist Portfolio"}, status=status.HTTP_400_BAD_REQUEST)
     
+    def retrieve(self, request, *args, **kwargs):
+        """
+        user_id = get_user_id(request)
+        """
+        user_id = request.data.get("user_id")
+
+        if user_id == -1:
+            return Response({"Error : JWT Not Found"}, status=status.HTTP_400_BAD_REQUEST)
+        elif user_id == -2:
+            return Response({"Error : Login Server Error"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        else:
+            category_obj = Category.objects.filter(user_id=user_id)
+
+            if category_obj:
+                portfolio = None
+                for category in category_obj:
+                    portfolio = Portfolio.objects.filter(category_id=category.id, id=kwargs.get('pk'))
+                    if portfolio.exists(): 
+                        break
+                
+                if portfolio:
+                    serializer = self.get_serializer(portfolio[0])
+                    return Response(serializer.data)
+                else:
+                    return Response({"Error : Portfolio Not Found"}, status=status.HTTP_400_BAD_REQUEST)
+            else:
+                return Response({"Error : User Not Found"}, status=status.HTTP_400_BAD_REQUEST)
+        
+    def update(self, request, *args, **kwargs):
+        """
+        jwt_token = request.data.get('token')
+        해당 토큰을 로그인 서버에 보내서 user_id 획득
+        user_id = get_user_id(request)
+        """
+        user_id = request.data.get('user_id')
+        category = request.data.get('category')
+        category_obj = Category.objects.filter(user_id=user_id, category=category)
+        
+        if category_obj.exists():
+            req_data = copy_request_data(request.data)
+            req_data["category_id"] = category_obj[0].id
+            req_data["upload_date"] = timezone.now()
+            portfolio_obj = Portfolio.objects.filter(id=kwargs.get('pk'))
+
+            if portfolio_obj.exists():
+                partial = kwargs.pop('partial', False)
+                instance = self.get_object()
+                serializer = self.get_serializer(instance, data=req_data, partial=partial)
+                serializer.is_valid(raise_exception=True)
+                self.perform_update(serializer)
+
+                if getattr(instance, '_prefetched_objects_cache', None):
+                    # If 'prefetch_related' has been applied to a queryset, we need to
+                    # forcibly invalidate the prefetch cache on the instance.
+                    instance._prefetched_objects_cache = {}
+                
+                return Response(serializer.data, status=status.HTTP_200_OK)
+            else:
+                return Response({"Error : Wrong URL Id"}, status=status.HTTP_400_BAD_REQUEST)
+        else:
+            return Response({"Error : Not exist Category"}, status=status.HTTP_400_BAD_REQUEST)
+        
+    def destroy(self, request, *args, **kwargs):
+        """
+        user_id = get_user_id(request)
+        """
+        user_id = request.data.get("user_id")
+
+        if user_id == -1:
+            return Response({"Error : JWT Not Found"}, status=status.HTTP_400_BAD_REQUEST)
+        elif user_id == -2:
+            return Response({"Error : Login Server Error"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        else:
+            category_obj = Category.objects.filter(user_id=user_id)
+
+            if category_obj:
+                portfolio = None
+                for category in category_obj:
+                    portfolio = Portfolio.objects.filter(category_id=category.id, id=kwargs.get('pk'))
+                    if portfolio.exists(): 
+                        break
+                
+                if portfolio:
+                    self.perform_destroy(portfolio[0])
+                    return Response({"Delete Success"},status=status.HTTP_204_NO_CONTENT)
+                else:
+                    return Response({"Error : Permission denied"}, status=status.HTTP_400_BAD_REQUEST)
+            else:
+                return Response({"Error : User Not Found"}, status=status.HTTP_400_BAD_REQUEST)
