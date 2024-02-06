@@ -132,10 +132,106 @@ class EnterpriseViewSet(viewsets.ModelViewSet):
     queryset = Enterprise.objects.all()
     serializer_class = EnterpriseSerializer
 
+    
+
 class CategoryViewSet(viewsets.ModelViewSet):
     queryset = Category.objects.all()
     serializer_class = CategorySerializer
 
+    def create(self, request, *args, **kwargs):
+        user_id = request.data.get("user_id")
+
+        if user_id == -1:
+            return Response({"Error : JWT Not Found"}, status=status.HTTP_400_BAD_REQUEST)
+        elif user_id == -2:
+            return Response({"Error : Login Server Error"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        else:
+            try:
+                serializer = self.get_serializer(data=request.data)
+                serializer.is_valid(raise_exception=True)
+                self.perform_create(serializer)
+                headers = self.get_success_headers(serializer.data)
+                return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
+            except:
+                return Response({"Error : Category Already Exist"}, status=status.HTTP_400_BAD_REQUEST)
+    
+    def list(self, request, *args, **kwargs):
+        user_id = request.data.get("user_id")
+
+        if user_id == -1:
+            return Response({"Error : JWT Not Found"}, status=status.HTTP_400_BAD_REQUEST)
+        elif user_id == -2:
+            return Response({"Error : Login Server Error"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        else:
+            queryset = self.filter_queryset(self.get_queryset().filter(user_id=user_id))
+
+            page = self.paginate_queryset(queryset)
+            if page is not None:
+                serializer = self.get_serializer(page, many=True)
+                return self.get_paginated_response(serializer.data)
+
+            serializer = self.get_serializer(queryset, many=True)
+            return Response(serializer.data)
+
+    def retrieve(self, request, *args, **kwargs):
+        user_id = request.data.get("user_id")
+
+        if user_id == -1:
+            return Response({"Error : JWT Not Found"}, status=status.HTTP_400_BAD_REQUEST)
+        elif user_id == -2:
+            return Response({"Error : Login Server Error"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        else:
+            category_obj = Category.objects.filter(id=kwargs.get("pk"))
+
+            if category_obj.exists():
+                serializer = self.get_serializer(category_obj[0])
+                return Response(serializer.data)
+            else:
+                return Response({"Category Not Exist"}, status=status.HTTP_400_BAD_REQUEST)
+    
+    def destroy(self, request, *args, **kwargs):
+        user_id = request.data.get("user_id")
+
+        if user_id == -1:
+            return Response({"Error : JWT Not Found"}, status=status.HTTP_400_BAD_REQUEST)
+        elif user_id == -2:
+            return Response({"Error : Login Server Error"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        else:
+            category_obj = Category.objects.filter(id=kwargs.get("pk"), user_id=user_id)
+
+            if category_obj.exists():
+                instance = self.get_object()
+                self.perform_destroy(instance)
+                return Response(status=status.HTTP_204_NO_CONTENT)
+            else:
+                return Response({"Error : No Access"}, status=status.HTTP_403_FORBIDDEN)
+   
+    def update(self, request, *args, **kwargs):
+        user_id = request.data.get("user_id")
+
+        if user_id == -1:
+            return Response({"Error : JWT Not Found"}, status=status.HTTP_400_BAD_REQUEST)
+        elif user_id == -2:
+            return Response({"Error : Login Server Error"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        else:
+            category_obj = Category.objects.filter(id=kwargs.get("pk"), user_id=user_id)
+
+            if category_obj.exists():
+                partial = kwargs.pop('partial', False)
+                instance = self.get_object()
+                serializer = self.get_serializer(instance, data=request.data, partial=partial)
+                serializer.is_valid(raise_exception=True)
+                self.perform_update(serializer)
+
+                if getattr(instance, '_prefetched_objects_cache', None):
+                    # If 'prefetch_related' has been applied to a queryset, we need to
+                    # forcibly invalidate the prefetch cache on the instance.
+                    instance._prefetched_objects_cache = {}
+
+                return Response(serializer.data)
+            else:
+                return Response({"Error : No Access"}, status=status.HTTP_403_FORBIDDEN)
+    
 class PortfolioViewSet(viewsets.ModelViewSet):
     queryset = Portfolio.objects.all()
     serializer_class = PortfolioSerializer
@@ -150,10 +246,19 @@ class PortfolioViewSet(viewsets.ModelViewSet):
         user_id = get_user_id(request)
         """
         user_id = request.data.get('user_id')
-        category = request.data.get('category')
-        category_obj = Category.objects.filter(user_id=user_id, category=category)
-        
-        if category_obj.exists():
+
+        if user_id == -1:
+            return Response({"Error : JWT Not Found"}, status=status.HTTP_400_BAD_REQUEST)
+        elif user_id == -2:
+            return Response({"Error : Login Server Error"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        else:
+            category = request.data.get('category')
+            user_obj = User.objects.filter(id=user_id)
+            category_obj = Category.objects.filter(user_id=user_id, category=category)
+
+            if not category_obj.exists():
+                Category.objects.create(user_id=user_obj[0], category=category)
+
             req_data = copy_request_data(request.data)
             req_data["category_id"] = category_obj[0].id 
 
@@ -170,9 +275,7 @@ class PortfolioViewSet(viewsets.ModelViewSet):
             serializer.is_valid(raise_exception=True)
             self.perform_create(serializer)
             headers = self.get_success_headers(serializer.data)
-            return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)    
-        else:
-            return Response({"Error : Not exist Category"}, status=status.HTTP_400_BAD_REQUEST)
+            return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers) 
         
     def list(self, request, *args, **kwargs):
         """
@@ -261,7 +364,7 @@ class PortfolioViewSet(viewsets.ModelViewSet):
             else:
                 return Response({"Error : Wrong URL Id"}, status=status.HTTP_400_BAD_REQUEST)
         else:
-            return Response({"Error : Not exist Category"}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({"Error : Not exist Category or No Access"}, status=status.HTTP_400_BAD_REQUEST)
         
     def destroy(self, request, *args, **kwargs):
         """
@@ -276,7 +379,7 @@ class PortfolioViewSet(viewsets.ModelViewSet):
         else:
             category_obj = Category.objects.filter(user_id=user_id)
 
-            if category_obj:
+            if category_obj.exists():
                 portfolio = None
                 for category in category_obj:
                     portfolio = Portfolio.objects.filter(category_id=category.id, id=kwargs.get('pk'))
@@ -287,6 +390,6 @@ class PortfolioViewSet(viewsets.ModelViewSet):
                     self.perform_destroy(portfolio[0])
                     return Response({"Delete Success"},status=status.HTTP_204_NO_CONTENT)
                 else:
-                    return Response({"Error : Permission denied"}, status=status.HTTP_400_BAD_REQUEST)
+                    return Response({"Error : Permission denied"}, status=status.HTTP_403_FORBIDDEN)
             else:
                 return Response({"Error : User Not Found"}, status=status.HTTP_400_BAD_REQUEST)
