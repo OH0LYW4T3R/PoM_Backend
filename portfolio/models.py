@@ -16,11 +16,12 @@ class Enterprise(models.Model):
     id = models.BigAutoField(primary_key=True)
     user_id = models.ForeignKey(User, related_name="enterprise_visible", on_delete=models.CASCADE)
     enterprise = models.CharField(help_text="enterprise", max_length=100)
+    # 마감기한 추가
 
 class Category(models.Model):
     id = models.BigAutoField(primary_key=True)
     user_id = models.ForeignKey(User, related_name="category", on_delete=models.CASCADE)
-    category = models.CharField(unique=True, help_text="category", max_length=100) # 얘를 포인트로 탐색
+    category = models.CharField(help_text="category", max_length=100) # 얘를 포인트로 탐색
 
 def upload_to_portfolio_thumbnail(instance, filename):
     return f'portfolio_thumbnail/{instance.category_id.user_id.name}/{instance.category_id.category}/{filename}'

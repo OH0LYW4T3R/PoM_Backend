@@ -56,15 +56,24 @@ def get_user_id(request):
 
         if response.status_code == 200:
             # 추후 응답에 따른 로직 변경
-            user_id = response.json()
-            return user_id
+            response_data = response.json()
+            return response_data['user_id'], response_data['user_type'], response_data['company']
         else:
             # Server Error
-            return -2
+            return -2, None, None
     else:
         # -1 : Not Found (JWT)
-        return -1
-
+        return -1, None, None
+    
+test_enterprise_code = {
+    "a1b1" : "카카오",
+    "a2b2" : "네이버",
+    "a3b3" : "배달의민족",
+    "a4b4" : "라인",
+    "a5b5" : "쿠팡",
+    "a6b6" : "당근",
+    "a7b7" : "토스"
+}
 
 @api_view(['POST'])
 # Portfolio Summary View
@@ -132,7 +141,68 @@ class EnterpriseViewSet(viewsets.ModelViewSet):
     queryset = Enterprise.objects.all()
     serializer_class = EnterpriseSerializer
 
-    
+    def create(self, request, *args, **kwargs):
+        user_id = request.data.get("user_id")
+
+        if user_id == -1:
+            return Response({"Error : JWT Not Found"}, status=status.HTTP_400_BAD_REQUEST)
+        elif user_id == -2:
+            return Response({"Error : Login Server Error"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        else:
+            # 추후 서버로 보내는 코드로 변경
+            code = request.data.get("enterprise_code")
+            enterprise = test_enterprise_code[code]
+            
+            if enterprise:
+                enterprise_obj = Enterprise.objects.filter(user_id=user_id, enterprise=enterprise)
+                if not enterprise_obj.exists():
+                    req_data = copy_request_data(request.data)
+                    req_data["enterprise"] = enterprise
+                    req_data["user_id"] = user_id
+
+                    serializer = self.get_serializer(data=req_data)
+                    serializer.is_valid(raise_exception=True)
+                    self.perform_create(serializer)
+                    headers = self.get_success_headers(serializer.data)
+                    return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
+                else:
+                    return Response({"Error : Already register"}, status=status.HTTP_400_BAD_REQUEST)
+            else:
+                return Response({"Error : Enterprise not register"}, status=status.HTTP_400_BAD_REQUEST)
+
+    def list(self, request, *args, **kwargs):
+        user_id = request.data.get("user_id")
+
+        if user_id == -1:
+            return Response({"Error : JWT Not Found"}, status=status.HTTP_400_BAD_REQUEST)
+        elif user_id == -2:
+            return Response({"Error : Login Server Error"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        else:
+            queryset = self.filter_queryset(self.get_queryset().filter(user_id=user_id))
+
+            page = self.paginate_queryset(queryset)
+            if page is not None:
+                serializer = self.get_serializer(page, many=True)
+                return self.get_paginated_response(serializer.data)
+
+            serializer = self.get_serializer(queryset, many=True)
+            return Response(serializer.data)
+
+    def destroy(self, request, *args, **kwargs):
+        user_id = request.data.get("user_id")
+
+        if user_id == -1:
+            return Response({"Error : JWT Not Found"}, status=status.HTTP_400_BAD_REQUEST)
+        elif user_id == -2:
+            return Response({"Error : Login Server Error"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        else:
+            enterprise_obj = Enterprise.objects.filter(user_id=user_id, id=kwargs.get("pk"))
+
+            if enterprise_obj.exists():
+                self.perform_destroy(enterprise_obj)
+                return Response(status=status.HTTP_204_NO_CONTENT)
+            else:
+                return Response({"Error : Enterprise not Exist"}, status=status.HTTP_400_BAD_REQUEST)
 
 class CategoryViewSet(viewsets.ModelViewSet):
     queryset = Category.objects.all()
@@ -146,13 +216,15 @@ class CategoryViewSet(viewsets.ModelViewSet):
         elif user_id == -2:
             return Response({"Error : Login Server Error"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
         else:
-            try:
+            category_obj = Category.objects.filter(user_id=user_id, category=request.data.get("category"))
+
+            if not category_obj.exists():
                 serializer = self.get_serializer(data=request.data)
                 serializer.is_valid(raise_exception=True)
                 self.perform_create(serializer)
                 headers = self.get_success_headers(serializer.data)
                 return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
-            except:
+            else:
                 return Response({"Error : Category Already Exist"}, status=status.HTTP_400_BAD_REQUEST)
     
     def list(self, request, *args, **kwargs):
@@ -164,7 +236,7 @@ class CategoryViewSet(viewsets.ModelViewSet):
             return Response({"Error : Login Server Error"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
         else:
             queryset = self.filter_queryset(self.get_queryset().filter(user_id=user_id))
-
+            
             page = self.paginate_queryset(queryset)
             if page is not None:
                 serializer = self.get_serializer(page, many=True)
@@ -284,25 +356,57 @@ class PortfolioViewSet(viewsets.ModelViewSet):
         user_id = get_user_id(request)
         """
         user_id = request.data.get("user_id")
+        user_type = request.data.get("user_type")
 
-        if user_id == -1:
-            return Response({"Error : JWT Not Found"}, status=status.HTTP_400_BAD_REQUEST)
-        elif user_id == -2:
-            return Response({"Error : Login Server Error"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-        else:
-            category_obj = Category.objects.filter(user_id=user_id)
-
-            if category_obj.exists():
-                portfolio_queryset = Portfolio.objects.filter(category_id=category_obj[0].id)
-
-                for i in range(1, len(category_obj)):
-                    queryset = Portfolio.objects.filter(category_id=category_obj[i].id)
-                    portfolio_queryset = portfolio_queryset.union(queryset)
-
-                serializer = self.get_serializer(portfolio_queryset, many=True)
-                return Response(serializer.data)
+        if user_type == "i":
+            if user_id == -1:
+                return Response({"Error : JWT Not Found"}, status=status.HTTP_400_BAD_REQUEST)
+            elif user_id == -2:
+                return Response({"Error : Login Server Error"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
             else:
-                return Response({"Error : Not Exist Portfolio"}, status=status.HTTP_400_BAD_REQUEST)
+                category_obj = Category.objects.filter(user_id=user_id)
+
+                if category_obj.exists():
+                    portfolio_queryset = Portfolio.objects.filter(category_id=category_obj[0].id)
+
+                    for i in range(1, len(category_obj)):
+                        queryset = Portfolio.objects.filter(category_id=category_obj[i].id)
+                        portfolio_queryset = portfolio_queryset.union(queryset)
+
+                    serializer = self.get_serializer(portfolio_queryset, many=True)
+                    return Response(serializer.data)
+                else:
+                    return Response({"Error : Not Exist Portfolio"}, status=status.HTTP_400_BAD_REQUEST)
+        elif user_type == "e":
+            company = request.data.get("company")
+            print(company)
+            register_user = User.objects.filter(enterprise_visible__enterprise=company)
+
+            if register_user.exists():
+                export_queryset = Portfolio.objects.none()
+                print(export_queryset)
+                for user in register_user:
+                    category_obj = Category.objects.filter(user_id=user.id)
+                    print(category_obj)
+                    if category_obj.exists():
+                        portfolio_queryset = Portfolio.objects.filter(category_id=category_obj[0].id)
+
+                        for i in range(1, len(category_obj)):
+                            queryset = Portfolio.objects.filter(category_id=category_obj[i].id)
+                            portfolio_queryset = portfolio_queryset.union(queryset)
+
+                        export_queryset = export_queryset.union(portfolio_queryset)
+
+                serializer = self.get_serializer(export_queryset, many=True)
+
+                print(serializer.data)
+                    
+                return Response(serializer.data, status=status.HTTP_200_OK)
+            else:
+                return Response({"Nobody user Registered"}, status=status.HTTP_200_OK)
+        else:
+            return Response({"Error : Type not Register"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
     
     def retrieve(self, request, *args, **kwargs):
         """
