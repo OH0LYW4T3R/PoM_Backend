@@ -1,4 +1,5 @@
 from config.settings import BASE_DIR
+from collections import defaultdict
 
 import os
 import requests
@@ -150,6 +151,8 @@ class EnterpriseViewSet(viewsets.ModelViewSet):
             return Response({"Error : Login Server Error"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
         else:
             # 추후 서버로 보내는 코드로 변경
+            # 기업이 코드를 만들때,
+            # 포트폴리오를 봐야할 기간을 지정하도록 함
             code = request.data.get("enterprise_code")
             enterprise = test_enterprise_code[code]
             
@@ -158,6 +161,7 @@ class EnterpriseViewSet(viewsets.ModelViewSet):
                 if not enterprise_obj.exists():
                     req_data = copy_request_data(request.data)
                     req_data["enterprise"] = enterprise
+                    req_data["deadline"] = request.data.get("deadline")
                     req_data["user_id"] = user_id
 
                     serializer = self.get_serializer(data=req_data)
@@ -168,7 +172,7 @@ class EnterpriseViewSet(viewsets.ModelViewSet):
                 else:
                     return Response({"Error : Already register"}, status=status.HTTP_400_BAD_REQUEST)
             else:
-                return Response({"Error : Enterprise not register"}, status=status.HTTP_400_BAD_REQUEST)
+                return Response({"Error : Enterprise not register Or typo"}, status=status.HTTP_400_BAD_REQUEST)
 
     def list(self, request, *args, **kwargs):
         user_id = request.data.get("user_id")
@@ -179,6 +183,16 @@ class EnterpriseViewSet(viewsets.ModelViewSet):
             return Response({"Error : Login Server Error"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
         else:
             queryset = self.filter_queryset(self.get_queryset().filter(user_id=user_id))
+
+            # 바로 반영이 안되므로 
+            for query in queryset:
+                print(query.deadline)
+                if query.deadline < timezone.now():
+                    print("call")
+                    Enterprise.objects.filter(id=query.id).delete()
+            
+            queryset = Enterprise.objects.filter(user_id=user_id)
+            #queryset = self.filter_queryset(self.get_queryset().filter(user_id=user_id))
 
             page = self.paginate_queryset(queryset)
             if page is not None:
@@ -341,6 +355,8 @@ class PortfolioViewSet(viewsets.ModelViewSet):
                 req_data["thumbnail_file"] = thumbnail_file
             elif thumbnail_url:
                 req_data["thumbnail_url"] = thumbnail_url
+
+            req_data["name"] = user_obj[0].name
             # 프론트에서 thumbnail_url = '' && thumbnail_file = null 이면 그냥 기본이미지 보여주게 셋팅
 
             serializer = self.get_serializer(data=req_data)
@@ -357,37 +373,53 @@ class PortfolioViewSet(viewsets.ModelViewSet):
         """
         user_id = request.data.get("user_id")
         user_type = request.data.get("user_type")
+        search_range = request.GET.get('search_range', None)
 
+        # 다른사람도 볼수있게 해놨을때 로직도 생성
         if user_type == "i":
             if user_id == -1:
                 return Response({"Error : JWT Not Found"}, status=status.HTTP_400_BAD_REQUEST)
             elif user_id == -2:
                 return Response({"Error : Login Server Error"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
             else:
-                category_obj = Category.objects.filter(user_id=user_id)
+                if search_range == "self":
+                    category_obj = Category.objects.filter(user_id=user_id)
 
-                if category_obj.exists():
-                    portfolio_queryset = Portfolio.objects.filter(category_id=category_obj[0].id)
+                    if category_obj.exists():
+                        portfolio_queryset = Portfolio.objects.filter(category_id=category_obj[0].id)
 
-                    for i in range(1, len(category_obj)):
-                        queryset = Portfolio.objects.filter(category_id=category_obj[i].id)
-                        portfolio_queryset = portfolio_queryset.union(queryset)
+                        for i in range(1, len(category_obj)):
+                            queryset = Portfolio.objects.filter(category_id=category_obj[i].id)
+                            portfolio_queryset = portfolio_queryset.union(queryset)
 
-                    serializer = self.get_serializer(portfolio_queryset, many=True)
+                        serializer = self.get_serializer(portfolio_queryset, many=True)
+                        return Response(serializer.data)
+                    else:
+                        return Response({"Error : Not Exist Portfolio"}, status=status.HTTP_400_BAD_REQUEST)
+                elif search_range == "other":
+                    queryset = self.filter_queryset(self.get_queryset().filter(personal_visible="public"))
+
+                    page = self.paginate_queryset(queryset)
+                    if page is not None:
+                        serializer = self.get_serializer(page, many=True)
+                        return self.get_paginated_response(serializer.data)
+
+                    serializer = self.get_serializer(queryset, many=True)
                     return Response(serializer.data)
                 else:
-                    return Response({"Error : Not Exist Portfolio"}, status=status.HTTP_400_BAD_REQUEST)
+                    return Response({"Error : Wrong Search Range"}, status=status.HTTP_400_BAD_REQUEST)
+
         elif user_type == "e":
             company = request.data.get("company")
-            print(company)
             register_user = User.objects.filter(enterprise_visible__enterprise=company)
 
             if register_user.exists():
                 export_queryset = Portfolio.objects.none()
-                print(export_queryset)
+                name_list = []
+
                 for user in register_user:
                     category_obj = Category.objects.filter(user_id=user.id)
-                    print(category_obj)
+                    name_list.append(user.name)
                     if category_obj.exists():
                         portfolio_queryset = Portfolio.objects.filter(category_id=category_obj[0].id)
 
@@ -399,15 +431,18 @@ class PortfolioViewSet(viewsets.ModelViewSet):
 
                 serializer = self.get_serializer(export_queryset, many=True)
 
-                print(serializer.data)
-                    
-                return Response(serializer.data, status=status.HTTP_200_OK)
+                refactoring = defaultdict(list)
+                for item in serializer.data:
+                    refactoring[item['name']].append(dict(item))
+
+                name_data = [{name: data} for name, data in refactoring.items()]
+
+                return Response(name_data, status=status.HTTP_200_OK)
             else:
                 return Response({"Nobody user Registered"}, status=status.HTTP_200_OK)
         else:
             return Response({"Error : Type not Register"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
-    
     def retrieve(self, request, *args, **kwargs):
         """
         user_id = get_user_id(request)

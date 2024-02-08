@@ -16,7 +16,7 @@ class Enterprise(models.Model):
     id = models.BigAutoField(primary_key=True)
     user_id = models.ForeignKey(User, related_name="enterprise_visible", on_delete=models.CASCADE)
     enterprise = models.CharField(help_text="enterprise", max_length=100)
-    # 마감기한 추가
+    deadline = models.DateTimeField()
 
 class Category(models.Model):
     id = models.BigAutoField(primary_key=True)
@@ -29,6 +29,7 @@ def upload_to_portfolio_thumbnail(instance, filename):
 class Portfolio(models.Model):
     id = models.BigAutoField(primary_key=True)
     category_id = models.ForeignKey(Category, related_name="portfolio", on_delete=models.CASCADE)
+    name = models.CharField(max_length=100)
     thumbnail_url = models.CharField(max_length=10000, blank=True) # default = ''
     thumbnail_file = models.ImageField(upload_to=upload_to_portfolio_thumbnail, null=True, blank=True) # default null
     title = models.CharField(max_length=100)
