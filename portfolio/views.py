@@ -1,4 +1,4 @@
-from config.settings import BASE_DIR
+from config.settings import get_env_variable
 from collections import defaultdict
 
 import os
@@ -33,10 +33,10 @@ github : Readme.md 파일을 받아서 올려줘야함
 
 naver : 크롤링 막음.
 """
-ADDRESS = "http://127.0.0.1:8000/"
+
 # 추후 로그인 서버 주소 삽입
-LOGIN_URL = "http://15.164.26.83/login/access_token/"
-REFRESH_URL = "http://15.164.26.83/login/refresh_token/"
+LOGIN_URL = get_env_variable('LOGIN_URL')
+REFRESH_URL = get_env_variable('REFRESH_URL')
 
 def copy_request_data(data):
     req_data = {}
@@ -48,7 +48,6 @@ def copy_request_data(data):
     return req_data
 
 def get_user_id(request):
-    #jwt 로직 제대로 구현
     authorization_header = request.headers.get('Authorization', '')
 
     if authorization_header.startswith('Bearer '):
