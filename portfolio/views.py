@@ -35,7 +35,8 @@ naver : 크롤링 막음.
 """
 ADDRESS = "http://127.0.0.1:8000/"
 # 추후 로그인 서버 주소 삽입
-LOGIN_URL = "http://127.0.0.1:8000/p/"
+LOGIN_URL = "http://15.164.26.83/login/access_token/"
+REFRESH_URL = "http://15.164.26.83/login/refresh_token/"
 
 def copy_request_data(data):
     req_data = {}
@@ -47,18 +48,50 @@ def copy_request_data(data):
     return req_data
 
 def get_user_id(request):
+    #jwt 로직 제대로 구현
     authorization_header = request.headers.get('Authorization', '')
 
     if authorization_header.startswith('Bearer '):
         jwt_token = authorization_header[len('Bearer '):]
 
-        headers = {'Authorization': f'Bearer {jwt_token}'}
-        response = requests.get(LOGIN_URL, headers=headers)
-
+        token_data = {'access_token' : jwt_token}
+        response = requests.post(LOGIN_URL, json=token_data)
+        
         if response.status_code == 200:
-            # 추후 응답에 따른 로직 변경
             response_data = response.json()
-            return response_data['user_id'], response_data['user_type'], response_data['company']
+            response_data = response_data['payload']
+
+            return response_data['user_id'], response_data['user_type'], None # 3번째 데이터 <- response_data['company']
+        
+        elif response.status_code == 401:
+            # 재발급
+            refresh_token = request.data.get('refresh_token', '')
+
+            if refresh_token:
+                refresh_data = {'refresh_token': refresh_token}
+                refresh_response = requests.post(REFRESH_URL, json=refresh_data)
+
+                if refresh_response.status_code == 200:
+                    new_jwt_token = refresh_response.json().get('access', '')
+
+                    token_data = {'access_token' : new_jwt_token}
+                    response = requests.post(LOGIN_URL, json=token_data)
+
+                    if response.status_code == 200:
+
+                        new_response_data = response.json()
+                        new_response_data = new_response_data['payload']
+
+                        return new_response_data['user_id'], new_response_data['user_type'], None # 3번째 데이터<- new_response_data['company']
+                    else:
+                        # Server Error after refreshing
+                        return -2, None, None
+                else:
+                    # Refresh token expired or invalid
+                    return -1, None, None
+            else:
+                # Not Fount (Refresh)
+                return -1, None, None
         else:
             # Server Error
             return -2, None, None
@@ -130,6 +163,9 @@ def summary_view(request):
     else:
         return Response({"Error" : 'Only Post requests are allowed'}, status=status.HTTP_400_BAD_REQUEST)
     
+# 해야 할 것 유저 CRUD
+# 로그인 서버 연결
+    
 class UserViewSet(viewsets.ModelViewSet):
     queryset = User.objects.all()
     serializer_class = UserSerializer
@@ -175,7 +211,8 @@ class EnterpriseViewSet(viewsets.ModelViewSet):
                 return Response({"Error : Enterprise not register Or typo"}, status=status.HTTP_400_BAD_REQUEST)
 
     def list(self, request, *args, **kwargs):
-        user_id = request.data.get("user_id")
+        user_id, user_type, company = get_user_id(request)
+        print(user_id)
 
         if user_id == -1:
             return Response({"Error : JWT Not Found"}, status=status.HTTP_400_BAD_REQUEST)
@@ -192,7 +229,6 @@ class EnterpriseViewSet(viewsets.ModelViewSet):
                     Enterprise.objects.filter(id=query.id).delete()
             
             queryset = Enterprise.objects.filter(user_id=user_id)
-            #queryset = self.filter_queryset(self.get_queryset().filter(user_id=user_id))
 
             page = self.paginate_queryset(queryset)
             if page is not None:
